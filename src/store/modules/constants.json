@@ -6,5 +6,9 @@
   "localUrl": {
     "member": "http://tes_api/member/api/v1",
     "driver": "http://tes_api/driver/api/v1"
+  },
+  "hkLatLng": {
+    "lat": 22.28552,
+    "lng": 114.15769
   }
 }

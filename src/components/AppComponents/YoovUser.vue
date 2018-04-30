@@ -36,7 +36,7 @@
       </div>
     </div>
     <div class="d-flex flex-row flex-grow-0">
-      <div class="flex-grow-1"></div>
+      <div class="flex-grow-1">mapLoaded: {{mapLoaded}}</div>
       <button v-if="user.type=='driver'"
         class="flex-grow-0 btn btn-xs"
         :class="{'btn-danger':user.online,'btn-default':!user.online}"
@@ -52,10 +52,12 @@
     <div
         class="flex-grow-0 d-flex flex-column yoov-map-container" style="width:100%;height:246px;">
       <gmap-map
+          ref="mapRef"
           class="yoov-user-map"
           :center="center"
-          :zoom="13"
+          :zoom="zoom"
           :options="options"
+          @center_changed="updateCenter"
           map-type-id="terrain">
         <gmap-marker :position="center">
         </gmap-marker>
@@ -66,18 +68,34 @@
 </template>
 
 <script>
-  import {API_KEY} from '../Dashboard/Views/Maps/API_KEY'
-  import Vue from 'vue'
-  import * as VueGoogleMaps from 'vue2-google-maps'
-  Vue.use(VueGoogleMaps, {
-    load: {
-      key: API_KEY
-    }
-  })
+//  import {API_KEY} from '../Dashboard/Views/Maps/API_KEY'
+//  import Vue from 'vue'
+// import GoogleMapsLoader from 'google-maps'
+  import {loaded, gmapApi} from 'vue2-google-maps'
 
   export default {
+    created () {
+      let vm = this
+      loaded.then(() => {
+        this.mapLoaded = true
+        console.log('created :: google: ', vm.google)
+      })
+//      const bounds = new vm.google.maps.LatLngBounds()
+//      console.log('created :: bounds: ', bounds)
+      // vm.$refs.mapRef.center_changed((center) => {
+      //   console.log('center_changed :; cneter: ', center)
+      // })
+    },
     mounted () {
-      console.log('API_KEY: ' + API_KEY)
+      let vm = this
+      // console.log('API_KEY: ' + API_KEY)
+      vm.map = vm.$refs.mapRef.$mapObject
+      // this.$refs.mapRef.$mapCreated.then(() => {
+      //   this.mapLoaded = true
+      // })
+    },
+    computed: {
+      google: gmapApi
     },
     data () {
       return {
@@ -86,6 +104,9 @@
           lat: 40.748817,
           lng: -73.985428
         },
+        mapLoaded: false,
+        map: null,
+        zoom: 13,
         options: {
           styles: [{
             'featureType': 'water',
@@ -148,8 +169,22 @@
         this.loading = true
         this.$store.dispatch('login', {
           slotNo: user.slot_no,
-          callback: () => {
+          callback: (extra) => {
             vm.loading = false
+            console.log('mapRef: ', vm.$refs.mapRef)
+            console.log('extra: ', extra)
+            vm.center = extra.center
+            vm.zoom = extra.zoom
+            vm.$refs.mapRef.panTo(vm.center)
+            if (vm.mapLoaded) {
+              // console.log('YoovUser :: VueGoogleMaps: ', VueGoogleMaps)
+              // VueGoogleMaps.Map.event.trigger(vm.$refs.mapRef.$mapObject, 'resize')
+              // gmap.event.trigger(vm.$refs.mapRef.$mapObject, 'resize')
+              vm.google.maps.Map.event.trigger(vm.$refs.mapRef.$mapObject, 'resize')
+              // VueGoogleMaps.gmapApi.event.trigger(vm.$refs.mapRef.$mapObject, 'resize')
+            }
+            console.log('callback :: center: ', vm.center)
+            console.log('callback :: user: ', vm.user)
           }
         })
         console.log('YoovUser :: login')
@@ -174,7 +209,23 @@
       },
       addCard (user) {
         alert('user name: ' + user.name)
+      },
+      updateCenter (center) {
+        let vm = this
+        console.log('updateCenter :; center: ', center)
+        console.log('updateCenter :; lat: ', center.lat())
+        console.log('updateCenter :; lng: ', center.lng())
+        vm.$store.dispatch('updateMapCenter', {
+          user: vm.user,
+          center: {
+            lat: center.lat(),
+            lng: center.lng()
+          },
+          callback: function () {
+          }
+        })
       }
+
     }
   }
 </script>

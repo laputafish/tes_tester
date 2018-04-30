@@ -44,7 +44,7 @@
   import Card from 'src/components/UIComponents/Cards/Card.vue'
   import LTable from 'src/components/UIComponents/Table.vue'
   import Checkbox from 'src/components/UIComponents/Inputs/Checkbox.vue'
-  import YoovUser from 'src/components/UIComponents/YoovUser.vue'
+  import YoovUser from 'src/components/AppComponents/YoovUser.vue'
   import MessageDialog from 'src/components/UIComponents/Dialogs/MessageDialog.vue'
   import CallOptionDialog from 'src/components/UIComponents/Dialogs/CallOptionDialog.vue'
 
@@ -133,6 +133,9 @@
       message () {
         return this.$store.getters.message
       }
+    },
+    created () {
+      this.$store.dispatch('setFbUsersRef')
     },
     watch: {
       showingMessageDialog: function (newVal) {

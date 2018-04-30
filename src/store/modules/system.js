@@ -1,7 +1,12 @@
 import * as types from '../mutation-types'
+import * as pushHelper from '../helpers/pushHelper'
+
 import data from './data.json'
 import axios from 'axios'
+import firebase from 'firebase'
+import {firebaseAction, firebaseMutations} from 'vuexfire'
 import constants from './constants.json'
+
 const state = {
   ...data,
   activeMenu: '',
@@ -9,10 +14,32 @@ const state = {
   showingMessageDialog: false,
   modalComponent: null,
   message: '',
-  loadingUser: false
+  loadingUser: false,
+  fbUsers: []
 }
 
+// Firebase initialization
+let config = {
+  apiKey: 'AIzaSyB1Wo22RZQa2znkct9izAfGphbfROZ1WoE',
+  authDomain: 'testester-39ed4.firebaseapp.com',
+  databaseURL: 'https://testester-39ed4.firebaseio.com',
+  projectId: 'testester-39ed4',
+  storageBucket: '',
+  messagingSenderId: '625932982944'
+}
+
+let db = firebase.initializeApp(config).database()
+let fbUsersRef = db.ref('users')
+
+state.memberPusher = pushHelper.initMemberPusher()
+state.driverPusher = pushHelper.initDriverPusher()
+
+let fbUsers = fbUsersRef
+
 const getters = {
+  fbUsers: (state) => {
+    return state.fbUsers
+  },
   users: (state) => {
     return state.users
   },
@@ -35,7 +62,19 @@ const getters = {
   showingMessageDialog: (state) => {
     return state.showingMessageDialog
   }
+}
 
+function getInitFbUser (user) {
+  return {
+    id: user.id,
+    center: {
+      lat: constants.hkLatLng.lat,
+      lng: constants.hkLatLng.lng
+    },
+    zoom: 13,
+    passengerCount: 0,
+    cardId: 0
+  }
 }
 
 function containsChild (parent, category) {
@@ -121,7 +160,7 @@ function showMessage (message) {
 }
 
 function findUserSlot (users, slotNo) {
-  console.log('findUserSlot')
+  console.log('findUserSlot for slot no = ' + slotNo)
   let result = null
   for (var i = 0; i < users.length; i++) {
     if (users[i].slot_no === slotNo) {
@@ -130,6 +169,15 @@ function findUserSlot (users, slotNo) {
     }
   }
   console.log('findUserSlot result: ', result)
+  return result
+}
+
+function getFbUser (user) {
+  let result = null
+  let filteredFbUsers = state.fbUsers.filter(function (item) {
+    return item.id === user.id
+  })
+  result = filteredFbUsers.length > 0 ? filteredFbUsers[0] : null
   return result
 }
 
@@ -142,7 +190,9 @@ function getConfig (user) {
   return config
 }
 
+console.log('system :: firebaseAction: ', firebaseAction)
 const mutations = {
+  ...firebaseMutations,
   showModal (state, componentName) {
     state.showingMessageDialog = true
     state.modalComponent = componentName
@@ -207,7 +257,101 @@ const mutations = {
   }
 }
 
+function unSubscribeAll (user) {
+  user.pushChannel.unsubscribe( 'member_' + user.id )
+  user.pushChannel = null
+}
+
+function setUser ( user, data ) {
+  user.photo_id = data.photo_id
+  user.cards = data.cards
+  user.id = data.id
+  user.is_active = data.is_active
+  user.last_login = data.last_login
+  user.name = data.name
+  user.tel_no = data.tel_no
+
+  console.log('system :: filter users :: fbUsers: ', fbUsers)
+  console.log('system :: fbUsers.length = ' + fbUsers.length)
+
+  let filteredFbUsers = state.fbUsers.filter(function (item) {
+    return item.id === user.id
+  })
+  console.log('filteredFbUsers: ', filteredFbUsers)
+  let fbUser = null
+  if (filteredFbUsers) {
+    fbUser = filteredFbUsers[0]
+  }
+  console.log('system :: login :: fbUser: ', fbUser)
+  if (typeof fbUser === 'undefined') {
+    console.log('system :: !fbUser = ' + (!fbUser ? 'yes' : 'no'))
+    fbUser = getInitFbUser(user)
+    console.log('setting up fbUser: ', fbUser)
+    fbUsersRef.push(fbUser)
+  }
+  user.extra = fbUser
+  console.log('login > get user > fbUser: ', fbUser)
+  console.log('login > get user > user: ', user)
+}
+
+function logoutUser(user) {
+  console.log('LOGIN :: user: ', user)
+  let url = getApiUrl(user) + '/auth/logout'
+  state.loadingUser = true
+  axios.post(url, {}, getConfig(user)).then(function (response) {
+    console.log('login :: response: ', response)
+    user.token = ''
+    user.loggedIn = false
+    user.online = false
+    if (response.data) {
+      if (response.data.status) {
+        if (response.data.message) {
+          showMessage(response.data.message)
+        }
+      } else {
+        if (response.data.message) {
+          showMessage(response.data.message)
+        } else if (response.data.error) {
+          showMessage(response.data.error)
+        }
+      }
+    }
+    console.log('login : response: ', response)
+  }, function (response) {
+    user.token = ''
+    user.loggedIn = false
+    user.online = false
+    state.loadingUser = false
+    showMessage(response.data.error)
+  })
+  console.log('login :: finished')
+}
+
 const actions = {
+  setFbUsersRef: firebaseAction(({
+    bindFirebaseRef
+  }) => {
+    bindFirebaseRef('fbUsers', fbUsersRef)
+  }),
+  async updateMapCenter ({commit, state}, payload) {
+    console.log('payload: ', payload)
+    let user = findUserSlot(state.users, payload.user.slot_no)
+    let fbUser = getFbUser(user)
+    if (typeof fbUser === 'undefined') {
+      fbUser = getInitFbUser(user)
+    }
+    let query = db.ref('users/' + fbUser['.key'] + '/center')
+    let data = {
+      lat: payload.center.lat,
+      lng: payload.center.lng
+    }
+    console.log('updateMapCenter :: fbUserref of ref: users/' + fbUser['.key'] + '/center')
+    console.log('updateMapCenter :: data:', data)
+    query.update(data)
+    if (typeof payload.callback === 'function') {
+      payload.callback()
+    }
+  },
   async login ({commit, state}, payload) {
     console.log('async login :: payload: ', payload)
     let user = findUserSlot(state.users, payload.slotNo)
@@ -220,33 +364,19 @@ const actions = {
     await axios.post(rootUrl + '/auth', data).then(function (response) {
       console.log('login :: response: ', response)
       if (response.data) {
-        if (response.data.status) {
-          user.token = response.data.token
-          user.loggedIn = true
-          axios.get(rootUrl + '/auth/user', {params: {token: user.token}}).then(function (response) {
-            if (typeof payload.callback === 'function') {
-              payload.callback()
-            }
-            user.photo_id = response.data.photo_id
-            user.cards = response.data.cards
-            user.id = response.data.id
-            user.is_active = response.data.is_active
-            user.last_login = response.data.last_login
-            user.name = response.data.name
-            user.tel_no = response.data.tel_no
-
-            console.log('login get user info: ', response.data)
-          })
-        } else {
+        user.token = response.data.token
+        user.loggedIn = true
+        let promises = [
+          axios.get(rootUrl + '/auth/user', {params: {token: user.token}}),
+          axios.get(rootUrl + '/pusher', {params: {token: user.token}})
+        ]
+        Promise.all(promises).then(function (responses) {
+          setUser( user, responses[0].data )
+          setUserPusher( user, responses[1].data )
           if (typeof payload.callback === 'function') {
-            payload.callback()
+            payload.callback(user.extra)
           }
-          if (response.data.message) {
-            showMessage(response.data.message)
-          } else if (response.data.error) {
-            showMessage(response.data.error)
-          }
-        }
+        })
       }
       console.log('login : response: ', response)
     }, function (response) {
@@ -259,36 +389,7 @@ const actions = {
   },
   async logout ({commit, state}, payload) {
     let user = findUserSlot(state.users, payload.slotNo)
-    console.log('LOGIN :: user: ', user)
-    let url = getApiUrl(user) + '/auth/logout'
-    state.loadingUser = true
-    await axios.post(url, {}, getConfig(user)).then(function (response) {
-      console.log('login :: response: ', response)
-      user.token = ''
-      user.loggedIn = false
-      user.online = false
-      if (response.data) {
-        if (response.data.status) {
-          if (response.data.message) {
-            showMessage(response.data.message)
-          }
-        } else {
-          if (response.data.message) {
-            showMessage(response.data.message)
-          } else if (response.data.error) {
-            showMessage(response.data.error)
-          }
-        }
-      }
-      console.log('login : response: ', response)
-    }, function (response) {
-      user.token = ''
-      user.loggedIn = false
-      user.online = false
-      state.loadingUser = false
-      showMessage(response.data.error)
-    })
-    console.log('login :: finished')
+    await logoutUser( user )
   }
 }
 

@@ -16,11 +16,15 @@
       "id": 0,
       "is_active": true,
       "tel_no": "",
-      "default_name": "Member #1"
+      "default_name": "Member #1",
+      "extra": null,
+      "pushChannel": null
     },
     {
       "slot_no": 2,
       "name": "",
+      "email": "yoovmember2@gmail.com",
+      "password": "yoovyoov",
       "age": 10,
       "gender": "m",
       "photo_id": 192,
@@ -32,11 +36,15 @@
       "id": 0,
       "is_active": true,
       "tel_no": "",
-      "default_name": "Member #2"
+      "default_name": "Member #2",
+      "extra": null,
+      "pushChannel": null
     },
     {
       "slot_no": 3,
       "name": "member3",
+      "email": "yoovmember3@gmail.com",
+      "password": "yoovyoov",
       "age": 10,
       "gender": "m",
       "photo_id": 192,
@@ -48,11 +56,15 @@
       "id": 0,
       "is_active": true,
       "tel_no": "",
-      "default_name": "Member #3"
+      "default_name": "Member #3",
+      "extra": null,
+      "pushChannel": null
     },
     {
       "slot_no": 4,
       "name": "member4",
+      "email": "yoovmember4@gmail.com",
+      "password": "yoovyoov",
       "age": 10,
       "gender": "m",
       "photo_id": 192,
@@ -64,11 +76,15 @@
       "id": 0,
       "is_active": true,
       "tel_no": "",
-      "default_name": "Member #4"
+      "default_name": "Member #4",
+      "extra": null,
+      "pushChannel": null
     },
     {
       "slot_no": 5,
       "name": "driver#1",
+      "email": "driver1@yoov.com",
+      "password": "yoovyoov",
       "age": 10,
       "gender": "m",
       "photo_id": 192,
@@ -80,11 +96,15 @@
       "id": 0,
       "is_active": true,
       "tel_no": "",
-      "default_name": "Driver #1"
+      "default_name": "Driver #1",
+      "extra": null,
+      "pushChannel": null
     },
     {
       "slot_no": 6,
       "name": "driver#2",
+      "email": "driver2@yoov.com",
+      "password": "yoovyoov",
       "age": 10,
       "gender": "m",
       "photo_id": 192,
@@ -96,11 +116,15 @@
       "id": 0,
       "is_active": true,
       "tel_no": "",
-      "default_name": "Driver #2"
+      "default_name": "Driver #2",
+      "extra": null,
+      "pushChannel": null
     },
     {
       "slot_no": 7,
       "name": "driver#3",
+      "email": "driver3@yoov.com",
+      "password": "yoovyoov",
       "age": 10,
       "gender": "m",
       "photo_id": 192,
@@ -112,11 +136,15 @@
       "id": 0,
       "is_active": true,
       "tel_no": "",
-      "default_name": "Driver #3"
+      "default_name": "Driver #3",
+      "extra": null,
+      "pushChannel": null
     },
     {
       "slot_no": 8,
       "name": "driver#4",
+      "email": "driver4@yoov.com",
+      "password": "yoovyoov",
       "age": 10,
       "gender": "m",
       "photo_id": 192,
@@ -128,9 +156,13 @@
       "id": 0,
       "is_active": true,
       "tel_no": "",
-      "default_name": "Driver #4"
+      "default_name": "Driver #4",
+      "extra": null,
+      "pushChannel": null
     }
   ],
+  "memberPusher": null,
+  "driverPusher": null,
   "products": [
     {
       "slot_no": 1,

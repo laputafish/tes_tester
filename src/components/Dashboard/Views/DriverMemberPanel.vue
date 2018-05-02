@@ -136,6 +136,9 @@
     },
     created () {
       this.$store.dispatch('setFbUsersRef')
+      this.$store.dispatch('init', {
+        serverMode: 'Local'
+      })
     },
     watch: {
       showingMessageDialog: function (newVal) {
@@ -160,9 +163,10 @@
         this.hideModal()
 //        this.$store.commit('CLOSE_MESSAGE_DIALOG')
       },
-      okHandler () {
+      okHandler (newOrder) {
         let vm = this
         // new call
+        console.log('okHandler :: newOrder: ', newOrder)
         vm.showingCallOptionDialog = false
       },
       onCommandHandler (commandSet) {

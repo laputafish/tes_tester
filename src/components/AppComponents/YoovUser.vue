@@ -36,7 +36,7 @@
       </div>
     </div>
     <div class="d-flex flex-row flex-grow-0">
-      <div class="flex-grow-1">mapLoaded: {{mapLoaded}}</div>
+      <div class="flex-grow-1">zoom: {{ zoom }}</div>
       <button v-if="user.type=='driver'"
         class="flex-grow-0 btn btn-xs"
         :class="{'btn-danger':user.online,'btn-default':!user.online}"
@@ -57,21 +57,22 @@
           :center="center"
           :zoom="zoom"
           :options="options"
-          @center_changed="updateCenter"
+          @center_changed="onCenterChanged"
+          @zoom_changed="onZoomChanged"
           map-type-id="terrain">
-        <gmap-marker :position="center">
-        </gmap-marker>
       </gmap-map>
+      <img src="static/img/map_pushpin.png" class="map_pushpin"/>
       <div v-show="!user.loggedIn" class="yoov-map-mask"></div>
     </div>
   </div>
 </template>
-
+mapRef
 <script>
 //  import {API_KEY} from '../Dashboard/Views/Maps/API_KEY'
 //  import Vue from 'vue'
 // import GoogleMapsLoader from 'google-maps'
   import {loaded, gmapApi} from 'vue2-google-maps'
+  import constants from '../../store/modules/constants.json'
 
   export default {
     created () {
@@ -95,18 +96,40 @@
       // })
     },
     computed: {
-      google: gmapApi
+      google: gmapApi,
+      zoom () {
+        let vm = this
+        let result = 13
+        if (vm.user) {
+          if (vm.user.extra) {
+            result = vm.user.extra.zoom
+          }
+        }
+        return result
+      },
+      center () {
+        let vm = this
+        let result = constants.hkLatLng
+        if (vm.user) {
+          if (vm.user.extra) {
+            result = vm.user.extra.center
+          }
+        }
+        return result
+      }
     },
     data () {
       return {
+        updateCenterTimeout: null,
+        updateZoomTimeout: null,
         loading: false,
-        center: {
-          lat: 40.748817,
-          lng: -73.985428
-        },
+        // center: {
+        //   lat: 40.748817,
+        //   lng: -73.985428
+        // },
+        // zoom: 13,
         mapLoaded: false,
         map: null,
-        zoom: 13,
         options: {
           styles: [{
             'featureType': 'water',
@@ -173,18 +196,16 @@
             vm.loading = false
             console.log('mapRef: ', vm.$refs.mapRef)
             console.log('extra: ', extra)
-            vm.center = extra.center
-            vm.zoom = extra.zoom
-            vm.$refs.mapRef.panTo(vm.center)
-            if (vm.mapLoaded) {
-              // console.log('YoovUser :: VueGoogleMaps: ', VueGoogleMaps)
-              // VueGoogleMaps.Map.event.trigger(vm.$refs.mapRef.$mapObject, 'resize')
-              // gmap.event.trigger(vm.$refs.mapRef.$mapObject, 'resize')
-              vm.google.maps.Map.event.trigger(vm.$refs.mapRef.$mapObject, 'resize')
-              // VueGoogleMaps.gmapApi.event.trigger(vm.$refs.mapRef.$mapObject, 'resize')
-            }
-            console.log('callback :: center: ', vm.center)
-            console.log('callback :: user: ', vm.user)
+            vm.$refs.mapRef.panTo(extra.center)
+            // if (vm.mapLoaded) {
+            //   // console.log('YoovUser :: VueGoogleMaps: ', VueGoogleMaps)
+            //   // VueGoogleMaps.Map.event.trigger(vm.$refs.mapRef.$mapObject, 'resize')
+            //   // gmap.event.trigger(vm.$refs.mapRef.$mapObject, 'resize')
+            //   vm.google.maps.Map.event.trigger(vm.$refs.mapRef.$mapObject, 'resize')
+            //   // VueGoogleMaps.gmapApi.event.trigger(vm.$refs.mapRef.$mapObject, 'resize')
+            // }
+            // console.log('callback :: center: ', vm.center)
+            // console.log('callback :: user: ', vm.user)
           }
         })
         console.log('YoovUser :: login')
@@ -210,22 +231,47 @@
       addCard (user) {
         alert('user name: ' + user.name)
       },
-      updateCenter (center) {
+      // updateCenter (center) {
+      //   let vm = this
+      //   vm.updateCenterTimeout = setTimeout(() => {
+      //     vm.center = center
+      //   }, 1000)
+      // },
+      onZoomChanged (zoom) {
         let vm = this
-        console.log('updateCenter :; center: ', center)
-        console.log('updateCenter :; lat: ', center.lat())
-        console.log('updateCenter :; lng: ', center.lng())
-        vm.$store.dispatch('updateMapCenter', {
-          user: vm.user,
-          center: {
-            lat: center.lat(),
-            lng: center.lng()
-          },
-          callback: function () {
-          }
-        })
-      }
+        if (vm.updateZoomTimeout) {
+          clearTimeout(vm.updateZoomTimeout)
+        }
+        vm.updateZoomTimeout = setTimeout(() => {
+          vm.$store.commit('UPDATE_MAP_ZOOM', {
+            user: vm.user,
+            zoom: zoom
+          })
+          console.log('center updated')
+        }, 1000)
+      },
 
+      onCenterChanged (location) {
+        let vm = this
+        let center = {
+          lat: location.lat(),
+          lng: location.lng()
+        }
+        console.log('updateCenter :; center: ', center)
+        if (vm.updateCenterTimeout) {
+          clearTimeout(vm.updateCenterTimeout)
+          console.log('clearTiemout :: updateCenterTimeout: ', vm.updateCenterTimeout)
+        }
+        vm.updateCenterTimeout = setTimeout(() => {
+          vm.$store.dispatch('updateMapCenter', {
+            user: vm.user,
+            center: center,
+            callback: function () {
+            }
+          })
+          console.log('center updated')
+        }, 1000)
+      }
     }
   }
 </script>
@@ -293,5 +339,10 @@
     bottom: 0;
     position: absolute;
     background-color: rgba(128,128,128,.8);
+  }
+  .map_pushpin {
+    position: absolute;
+    left: 148px;
+    top: 84px;
   }
 </style>

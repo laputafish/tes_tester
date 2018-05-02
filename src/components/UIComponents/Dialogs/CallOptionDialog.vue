@@ -7,32 +7,32 @@
     </div>
     <div slot="body">
       <div class="row">
-        <div class="col-sm-7">
-          <div class="form-group row">
-            <div class="col-sm-4">
-              <label class="col-form-label" for="serviceType">Service Type</label>
-            </div>
-            <div class="col-sm-8">
-              <input type="text" readonly class="form-control-plaintext" id="serviceType" :value="newOrder.serviceType"/>
-            </div>
-          </div>
-          <form-group-row-toggle
-              labelColClass="col-sm-4"
-              inputColClass="col-sm-8"
-              :options="[1,2,3,4,5,6,7,8]"
-              v-model="newOrder.passengerCount"
-              optionType="integer"
-              label="Passenger(s)"></form-group-row-toggle>
+        <div class="col-sm-3">
+          <label class="form-label" for="serviceType">Service Type</label>
+          <input type="text" readonly class="form-control-plaintext" id="serviceType" :value="newOrder.serviceType"/>
         </div>
-        <div class="col-sm-5">
+
+        <form-group-stack-toggle
+          class="col-sm-4"
+          :options="[1,2,3,4,5,6,7,8]"
+          v-model="newOrder.passengerCount"
+          optionType="integer"
+          label="Passenger(s)"></form-group-stack-toggle>
+
+        <div class="col-sm-4">
           <label class="form-label" for="card">Card</label>
-          <ul class="list-group">
-            <li v-if="!user">(no card)</li>
-            <li v-else v-for="card in user.cards" class="list-group-item">{{ card.name }}</li>
-          </ul>
+          <select v-if="user"
+                 class="form-control"
+                 v-model="newOrder.cardId">
+            <option value="0" selected disabled>Please select card</option>
+            <option v-for="card in user.cards" :value="card.id">{{ card.card_name }}</option>
+          </select>
+        </div>
+        <div class="col-sm-1">
+
         </div>
       </div>
-
+      <hr/>
       <div class="form-group row">
         <form-group-map
             label="Starting Point"
@@ -52,7 +52,7 @@
     </div>
     <div slot="footer">
       <button class="btn btn-default"
-              @click="$emit('ok')">
+              @click="$emit('ok', newOrder)">
         OK
       </button>
       <button class="btn btn-default"
@@ -65,7 +65,7 @@
 
 <script>
   import Modal from '../Modal.vue'
-  import FormGroupRowToggle from '../Inputs/FormGroupRowToggle.vue'
+  import FormGroupStackToggle from '../Inputs/FormGroupStackToggle.vue'
   import FormGroupMap from '../Inputs/FormGroupMap.vue'
   
   export default {
@@ -92,8 +92,11 @@
     },
     components: {
       Modal,
-      FormGroupRowToggle,
+      FormGroupStackToggle,
       FormGroupMap
+    },
+    mounted () {
+
     },
     props: {
       message: {
@@ -107,6 +110,14 @@
             cards: []
           }
         }
+      }
+    },
+    watch: {
+      user (newValue, oldValue) {
+        console.log('watch :: user: ', newValue)
+        let vm = this
+        vm.newOrder.from.lat = vm.newOrder.to.lat = newValue.extra.center.lat
+        vm.newOrder.from.lng = vm.newOrder.to.lng = newValue.extra.center.lng
       }
     }
   }

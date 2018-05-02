@@ -1,5 +1,7 @@
 import * as types from '../mutation-types'
-import * as pushHelper from '../helpers/pushHelper'
+import pushHelper from '../helpers/pushHelper'
+import apiHelper from '../helpers/apiHelper'
+import authService from '../helpers/authService'
 
 import data from './data.json'
 import axios from 'axios'
@@ -9,13 +11,18 @@ import constants from './constants.json'
 
 const state = {
   ...data,
+  adminToken: '',
   activeMenu: '',
   serverMode: 'Local', // Local or Online
   showingMessageDialog: false,
   modalComponent: null,
   message: '',
   loadingUser: false,
-  fbUsers: []
+  fbUsers: [],
+  pushes: {
+    member: null,
+    driver: null
+  }
 }
 
 // Firebase initialization
@@ -31,10 +38,7 @@ let config = {
 let db = firebase.initializeApp(config).database()
 let fbUsersRef = db.ref('users')
 
-state.memberPusher = pushHelper.initMemberPusher()
-state.driverPusher = pushHelper.initDriverPusher()
-
-let fbUsers = fbUsersRef
+// let fbUsers = fbUsersRef
 
 const getters = {
   fbUsers: (state) => {
@@ -135,19 +139,19 @@ function moveCategory (category, afterParent, beforeParent) {
   afterParent.children.push(category)
 }
 
-function getApiUrl (user) {
-  let url = ''
-  if (user.type === 'driver') {
-    url = state.serverMode === 'Local'
-      ? constants.localUrl.driver
-      : constants.onlineUrl.driver
-  } else {
-    url = state.serverMode === 'Local'
-      ? constants.localUrl.member
-      : constants.onlineUrl.member
-  }
-  return url
-}
+// function xgetApiUrl (user) {
+//   let url = ''
+//   if (user.type === 'driver') {
+//     url = state.serverMode === 'Local'
+//       ? constants.localUrl.driver
+//       : constants.onlineUrl.driver
+//   } else {
+//     url = state.serverMode === 'Local'
+//       ? constants.localUrl.member
+//       : constants.onlineUrl.member
+//   }
+//   return url
+// }
 
 function showMessage (message) {
   switch (message) {
@@ -190,7 +194,12 @@ function getConfig (user) {
   return config
 }
 
-console.log('system :: firebaseAction: ', firebaseAction)
+function updateFbUserInfo (user, key, value) {
+  console.log('updateFbUserInfo :: ' + key + ' => ' + value)
+  let fbUser = getFbUser(user)
+  db.ref().child('/users/' + fbUser['.key'] + '/' + key).set(value)
+}
+
 const mutations = {
   ...firebaseMutations,
   showModal (state, componentName) {
@@ -241,6 +250,7 @@ const mutations = {
   // },
   [types.LOGOUT] (state, payload) {
     let user = findUserSlot(state.users, payload.slot_no)
+    state.pushers[user.type].unsubscribe(user.pushChannel)
     user.loggedIn = false
   },
   [types.TOGGLE_ONLINE] (state, payload) {
@@ -254,15 +264,24 @@ const mutations = {
   [types.CLOSE_MESSAGE_DIALOG] (state, payload) {
     state.showingMessageDialog = false
     state.message = ''
+  },
+  [types.UPDATE_PUSHERS] (state, payload) {
+    state.pushers = {
+      member: payload.memberPusher,
+      driver: payload.driverPusher
+    }
+  },
+  [types.UPDATE_MAP_ZOOM] (state, payload) {
+    updateFbUserInfo(payload.user, 'zoom', payload.zoom)
   }
 }
 
-function unSubscribeAll (user) {
-  user.pushChannel.unsubscribe( 'member_' + user.id )
-  user.pushChannel = null
-}
+// function unSubscribeAll (user) {
+//   user.pushChannel.unsubscribe('member_' + user.id)
+//   user.pushChannel = null
+// }
 
-function setUser ( user, data ) {
+function setUser (user, data) {
   user.photo_id = data.photo_id
   user.cards = data.cards
   user.id = data.id
@@ -271,8 +290,8 @@ function setUser ( user, data ) {
   user.name = data.name
   user.tel_no = data.tel_no
 
-  console.log('system :: filter users :: fbUsers: ', fbUsers)
-  console.log('system :: fbUsers.length = ' + fbUsers.length)
+  // console.log('system :: filter users :: fbUsers: ', fbUsers)
+  // console.log('system :: fbUsers.length = ' + fbUsers.length)
 
   let filteredFbUsers = state.fbUsers.filter(function (item) {
     return item.id === user.id
@@ -282,24 +301,24 @@ function setUser ( user, data ) {
   if (filteredFbUsers) {
     fbUser = filteredFbUsers[0]
   }
-  console.log('system :: login :: fbUser: ', fbUser)
+  // console.log('system :: login :: fbUser: ', fbUser)
   if (typeof fbUser === 'undefined') {
-    console.log('system :: !fbUser = ' + (!fbUser ? 'yes' : 'no'))
+    // console.log('system :: !fbUser = ' + (!fbUser ? 'yes' : 'no'))
     fbUser = getInitFbUser(user)
-    console.log('setting up fbUser: ', fbUser)
+    // console.log('setting up fbUser: ', fbUser)
     fbUsersRef.push(fbUser)
   }
   user.extra = fbUser
-  console.log('login > get user > fbUser: ', fbUser)
-  console.log('login > get user > user: ', user)
+  // console.log('login > get user > fbUser: ', fbUser)
+  // console.log('login > get user > user: ', user)
 }
 
-function logoutUser(user) {
-  console.log('LOGIN :: user: ', user)
-  let url = getApiUrl(user) + '/auth/logout'
+function logoutUser (user) {
+  // console.log('LOGIN :: user: ', user)
+  let url = apiHelper.getApiUrl(user, state.serverMode) + '/auth/logout'
   state.loadingUser = true
   axios.post(url, {}, getConfig(user)).then(function (response) {
-    console.log('login :: response: ', response)
+    // console.log('login :: response: ', response)
     user.token = ''
     user.loggedIn = false
     user.online = false
@@ -316,7 +335,7 @@ function logoutUser(user) {
         }
       }
     }
-    console.log('login : response: ', response)
+    // console.log('login : response: ', response)
   }, function (response) {
     user.token = ''
     user.loggedIn = false
@@ -328,13 +347,24 @@ function logoutUser(user) {
 }
 
 const actions = {
+  async init ({commit, state, dispatch}, payload) {
+    authService.loginSuper(payload.serverMode).then((response) => {
+      // console.log('authService.loginSuper().then :: response: ', response)
+      state.adminToken = response.data.token
+      pushHelper.initPushers(payload.serverMode, state.adminToken).then((pushers) => {
+        // console.log('initPushers => promise pushes: ', pushers)
+        commit(types.UPDATE_PUSHERS, pushers)
+      })
+    })
+  },
+
   setFbUsersRef: firebaseAction(({
     bindFirebaseRef
   }) => {
     bindFirebaseRef('fbUsers', fbUsersRef)
   }),
   async updateMapCenter ({commit, state}, payload) {
-    console.log('payload: ', payload)
+    // console.log('payload: ', payload)
     let user = findUserSlot(state.users, payload.user.slot_no)
     let fbUser = getFbUser(user)
     if (typeof fbUser === 'undefined') {
@@ -345,8 +375,8 @@ const actions = {
       lat: payload.center.lat,
       lng: payload.center.lng
     }
-    console.log('updateMapCenter :: fbUserref of ref: users/' + fbUser['.key'] + '/center')
-    console.log('updateMapCenter :: data:', data)
+    // console.log('updateMapCenter :: fbUserref of ref: users/' + fbUser['.key'] + '/center')
+    // console.log('updateMapCenter :: data:', data)
     query.update(data)
     if (typeof payload.callback === 'function') {
       payload.callback()
@@ -356,40 +386,108 @@ const actions = {
     console.log('async login :: payload: ', payload)
     let user = findUserSlot(state.users, payload.slotNo)
     console.log('LOGIN :: user: ', user)
-    let rootUrl = getApiUrl(user)
+    console.log('LOGIN :: serverMode = ' + state.serverMode)
+    let rootUrl = apiHelper.getApiUrl(user, state.serverMode)
     let data = {
       email: user.email,
       password: user.password
     }
     await axios.post(rootUrl + '/auth', data).then(function (response) {
-      console.log('login :: response: ', response)
+      // console.log('login :: response: ', response)
       if (response.data) {
         user.token = response.data.token
         user.loggedIn = true
         let promises = [
           axios.get(rootUrl + '/auth/user', {params: {token: user.token}}),
-          axios.get(rootUrl + '/pusher', {params: {token: user.token}})
+          axios.get(rootUrl + '/pusher/0', {params: {token: user.token}})
         ]
         Promise.all(promises).then(function (responses) {
-          setUser( user, responses[0].data )
-          setUserPusher( user, responses[1].data )
+          setUser(user, responses[0].data)
+          let callbacks = user === 'member'
+            // Member
+            ? {
+              documents_approved: (data) => {
+                alert('pusher: documents_approved:\n #' + data.driving_licence_no + '\n' +
+                  'Type: ' + data.document_type)
+              },
+              documents_rejected: (data) => {
+                alert('pusher: documents_rejected:\n #' + data.driving_licence_no + '\n' +
+                  'Type: ' + data.document_type)
+              },
+              documents_expired: (data) => {
+                alert('pusher: documents_expired:\n #' + data.driving_licence_no + '\n' +
+                  'Type: ' + data.document_type)
+              },
+              documents_expiring_soon: (data) => {
+                alert('pusher: documents_expiring_soon:\n #' + data.driving_licence_no + '\n' +
+                  'Type: ' + data.document_type)
+              },
+              new_order: (data) => {
+                state.driverNewOrders.push({
+                  order: data,
+                  driver_id: user.id
+                })
+              },
+              confirmation_timeout: (data) => {
+                let orderId = data['order_id']
+                user.orders.filter((order) => {
+                  return order.id !== orderId
+                })
+                state.driverTimeoutOrders.push({
+                  order: data,
+                  driver_id: user.id
+                })
+              },
+              order_cancelled: (data) => {
+                let orderId = data['order_id']
+                user.orders.filter((order) => {
+                  return order.id !== orderId
+                })
+                state.driverCancelledOrders.push({
+                  order: data,
+                  driver_id: user.id
+                })
+              },
+              order_assigned: (data) => {
+                state.driverAssignedOrders.push({
+                  order: data,
+                  driver_id: user.id
+                })
+              },
+              reminder: (data) => {
+                state.driverReminderOrders.push({
+                  order: data,
+                  driver_id: user.id
+                })
+              }
+            }
+            // Driver
+            : {
+              logoutUser: logoutUser
+            }
+          pushHelper.setUserPusher(
+            state.pushers,
+            user,
+            callbacks
+          )
+
           if (typeof payload.callback === 'function') {
             payload.callback(user.extra)
           }
         })
       }
-      console.log('login : response: ', response)
+      // console.log('login : response: ', response)
     }, function (response) {
       if (typeof payload.callback === 'function') {
         payload.callback()
       }
       showMessage(response.error)
     })
-    console.log('login :: finished')
+    // console.log('login :: finished')
   },
   async logout ({commit, state}, payload) {
     let user = findUserSlot(state.users, payload.slotNo)
-    await logoutUser( user )
+    await logoutUser(user)
   }
 }
 

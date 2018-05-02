@@ -12,7 +12,7 @@ import 'bootstrap'
 import BootstrapVue from 'bootstrap-vue/dist/bootstrap-vue.esm'
 import App from './App.vue'
 import VTooltip from 'v-tooltip'
-import VuePusher from 'vue-pusher'
+// import VuePusher from 'vue-pusher'
 
 // LightBootstrap plugin
 import LightBootstrap from './light-bootstrap-main'
@@ -47,11 +47,9 @@ Vue.use(Datatable, {customLocale})
 Vue.use(SortableTree.name, SortableTree)
 Vue.use(VueGoogleMaps, {
   load: {
-    key: API_KEY
+    key: API_KEY,
+    libraries: ['places']
   }
-})
-Vue.use(VuePusher, {
-  api_key
 })
 // configure router
 const router = new VueRouter({

@@ -1,11 +1,13 @@
 {
   "onlineUrl": {
     "member": "https://m.tesmotorcade.com/member/api/v1",
-    "driver": "https://m.tesmotorcade.com/driveer/api/v1"
+    "driver": "https://m.tesmotorcade.com/driveer/api/v1",
+    "admin": "https://m.tesmotorcade.com/api/v1"
   },
   "localUrl": {
     "member": "http://tes_api/member/api/v1",
-    "driver": "http://tes_api/driver/api/v1"
+    "driver": "http://tes_api/driver/api/v1",
+    "admin": "http://tes_api/api/v1"
   },
   "hkLatLng": {
     "lat": 22.28552,
